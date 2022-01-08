@@ -1,0 +1,98 @@
+const TASKTABLE = "TMTask"
+const AREATABLE = "TMArea"
+const IS_NOT_TRASHED = "trashed = 0"
+const IS_OPEN = "status = 0"
+const IS_NOT_STARTED = "start = 0"
+const IS_STARTED = "start = 1"
+const IS_POSTPONED = "start = 2"
+const IS_TASK = "type = 0"
+const LIMIT_BY = "25"
+const ORDER_BY = "creationDate"
+
+export const INBOX_QUERY = `
+SELECT
+  TASK.uuid,
+  TASK.title,
+  TASK.notes,
+  TASK.userModificationDate
+FROM ${TASKTABLE} as TASK
+WHERE ${IS_NOT_TRASHED} AND ${IS_TASK} AND ${IS_NOT_STARTED} AND ${IS_OPEN}
+ORDER BY TASK.${ORDER_BY}
+LIMIT ${LIMIT_BY}
+`;
+
+export const TODAYS_QUERY = `
+SELECT
+  TASK.uuid,
+  TASK.title,
+  TASK.notes,
+  TASK.userModificationDate
+FROM ${TASKTABLE} as TASK
+LEFT OUTER JOIN ${TASKTABLE} PROJECT ON TASK.project = PROJECT.uuid
+LEFT OUTER JOIN ${AREATABLE} AREA ON TASK.area = AREA.uuid
+LEFT OUTER JOIN ${TASKTABLE} HEADING ON TASK.actionGroup = HEADING.uuid
+WHERE TASK.${IS_NOT_TRASHED} AND TASK.${IS_OPEN} AND TASK.${IS_TASK}
+AND TASK.${IS_STARTED}
+AND TASK.startdate is NOT NULL
+ORDER BY TASK.startdate, TASK.todayIndex
+LIMIT ${LIMIT_BY}
+`;
+
+export const UPCOMING_QUERY = `
+SELECT
+  TASK.uuid,
+  TASK.title,
+  TASK.notes,
+  TASK.userModificationDate
+FROM ${TASKTABLE} as TASK
+LEFT OUTER JOIN ${TASKTABLE} PROJECT ON TASK.project = PROJECT.uuid
+LEFT OUTER JOIN ${AREATABLE} AREA ON TASK.area = AREA.uuid
+LEFT OUTER JOIN ${TASKTABLE} HEADING ON TASK.actionGroup = HEADING.uuid
+WHERE TASK.${IS_NOT_TRASHED} AND TASK.${IS_OPEN} AND TASK.${IS_TASK}
+AND TASK.${IS_POSTPONED} AND (TASK.startDate NOT NULL OR TASK.recurrenceRule NOT NULL)
+ORDER BY TASK.startdate, TASK.todayIndex
+LIMIT ${LIMIT_BY}
+`;
+
+export const ANYTIME_QUERY = `
+SELECT
+  TASK.uuid,
+  TASK.title,
+  TASK.notes,
+  TASK.userModificationDate
+FROM ${TASKTABLE} as TASK
+LEFT OUTER JOIN ${TASKTABLE} PROJECT ON TASK.project = PROJECT.uuid
+LEFT OUTER JOIN ${AREATABLE} AREA ON TASK.area = AREA.uuid
+LEFT OUTER JOIN ${TASKTABLE} HEADING ON TASK.actionGroup = HEADING.uuid
+WHERE TASK.${IS_NOT_TRASHED} AND TASK.${IS_OPEN} AND TASK.${IS_TASK} AND TASK.${IS_STARTED}
+AND (
+  TASK.area NOT NULL
+  OR
+  TASK.project in (SELECT uuid FROM ${TASKTABLE} WHERE uuid=TASK.project AND ${IS_STARTED} AND ${IS_NOT_TRASHED}) 
+  OR
+  TASK.actionGroup in 
+    (SELECT uuid FROM TMTask heading WHERE uuid=TASK.actionGroup 
+      AND ${IS_STARTED} 
+      AND ${IS_NOT_TRASHED}
+      AND heading.project in (SELECT uuid FROM TMTask WHERE uuid=heading.project AND ${IS_STARTED} AND ${IS_NOT_TRASHED})
+    )
+  )
+ORDER BY TASK.todayIndex;
+LIMIT ${LIMIT_BY}
+`;
+
+export const SOMEDAY_QUERY = `
+SELECT
+  TASK.uuid,
+  TASK.title,
+  TASK.notes,
+  TASK.userModificationDate
+FROM ${TASKTABLE} as TASK
+LEFT OUTER JOIN ${TASKTABLE} PROJECT ON TASK.project = PROJECT.uuid
+LEFT OUTER JOIN ${AREATABLE} AREA ON TASK.area = AREA.uuid
+LEFT OUTER JOIN ${TASKTABLE} HEADING ON TASK.actionGroup = HEADING.uuid
+WHERE TASK.${IS_NOT_TRASHED} AND TASK.${IS_TASK}
+AND TASK.${IS_POSTPONED} AND TASK.${IS_OPEN}
+ORDER BY TASK.${ORDER_BY}
+LIMIT ${LIMIT_BY}
+`;
